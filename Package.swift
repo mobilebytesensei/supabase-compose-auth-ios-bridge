@@ -2,16 +2,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "MonetizationBridge",
+    name: "SupabaseComposeAuthBridge",
     platforms: [
         .iOS(.v15),
         .macOS(.v12)
     ],
     products: [
         .library(
-            name: "MonetizationBridge",
+            name: "SupabaseComposeAuthBridge",
             type: .static,
-            targets: ["MonetizationBridge"]
+            targets: ["exportedNativeBridge"]
         )
     ],
     dependencies: [
@@ -19,11 +19,11 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "MonetizationBridge",
+            name: "exportedNativeBridge",
             dependencies: [
                 .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS")
             ],
-            path: "Sources"
+            path: "exportedNativeBridge"
         )
     ]
 )

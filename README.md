@@ -1,8 +1,8 @@
-# Monetization iOS Bridge
+# Supabase Compose Auth iOS Bridge
 
-Native iOS bridge for [Monetization KMP](https://github.com/mobilebytesensei/monetization) library.
+Native iOS bridge for [supabase-compose-auth](https://github.com/supabase-community/supabase-kt-plugins/tree/main/ComposeAuth) native Google Sign-In.
 
-Provides native Google Sign-In support for iOS apps using the monetization library with Supabase authentication.
+Based on the official [exportedNativeBridge](https://github.com/supabase-community/supabase-kt-plugins/tree/main/ComposeAuth#native-google-auth-on-ios) structure for easy sync with upstream changes.
 
 ## Installation
 
@@ -11,7 +11,7 @@ Provides native Google Sign-In support for iOS apps using the monetization libra
 Add this package to your Xcode project:
 
 1. **File > Add Package Dependencies...**
-2. Enter URL: `https://github.com/mobilebytesensei/monetization-ios-bridge`
+2. Enter URL: `https://github.com/mobilebytesensei/supabase-compose-auth-ios-bridge`
 3. Select version and click **Add Package**
 
 ### Requirements
