@@ -40,9 +40,9 @@ jobs:
           # Create temp directory for upstream
           mkdir -p temp_upstream
 
-          # Download the exportedNativeBridge folder from supabase-kt-plugins
-          curl -sL "https://api.github.com/repos/supabase-community/supabase-kt-plugins/contents/ComposeAuth/exportedNativeBridge" | \
-            jq -r '.[] | select(.type == "file") | .download_url' | \
+          # Download Swift files from the Sources subfolder (excluding Package.swift)
+          curl -sL "https://api.github.com/repos/supabase-community/supabase-kt-plugins/contents/ComposeAuth/exportedNativeBridge/Sources" | \
+            jq -r '.[] | select(.type == "file" and (.name | endswith(".swift"))) | .download_url' | \
             while read url; do
               filename=$(basename "$url")
               echo "Downloading: $filename"
@@ -53,7 +53,7 @@ jobs:
           if [ -z "$(ls -A temp_upstream 2>/dev/null)" ]; then
             echo "No files found in upstream, trying alternative approach..."
             # Try direct download of known file
-            curl -sL "https://raw.githubusercontent.com/supabase-community/supabase-kt-plugins/main/ComposeAuth/exportedNativeBridge/GoogleSignInController.swift" \
+            curl -sL "https://raw.githubusercontent.com/supabase-community/supabase-kt-plugins/main/ComposeAuth/exportedNativeBridge/Sources/GoogleSignInController.swift" \
               -o "temp_upstream/GoogleSignInController.swift" || true
           fi
 
