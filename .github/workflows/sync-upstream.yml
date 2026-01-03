@@ -1,0 +1,172 @@
+name: Sync Upstream & Release
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force release even if no changes'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  sync-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get current version
+        id: current_version
+        run: |
+          # Get latest tag or default to 0.0.0
+          CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "tag=$CURRENT_TAG" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_TAG"
+
+      - name: Fetch upstream exportedNativeBridge
+        id: fetch_upstream
+        run: |
+          # Create temp directory for upstream
+          mkdir -p temp_upstream
+
+          # Download the exportedNativeBridge folder from supabase-kt-plugins
+          curl -sL "https://api.github.com/repos/supabase-community/supabase-kt-plugins/contents/ComposeAuth/exportedNativeBridge" | \
+            jq -r '.[] | select(.type == "file") | .download_url' | \
+            while read url; do
+              filename=$(basename "$url")
+              echo "Downloading: $filename"
+              curl -sL "$url" -o "temp_upstream/$filename"
+            done
+
+          # Check if we got any files
+          if [ -z "$(ls -A temp_upstream 2>/dev/null)" ]; then
+            echo "No files found in upstream, trying alternative approach..."
+            # Try direct download of known file
+            curl -sL "https://raw.githubusercontent.com/supabase-community/supabase-kt-plugins/main/ComposeAuth/exportedNativeBridge/GoogleSignInController.swift" \
+              -o "temp_upstream/GoogleSignInController.swift" || true
+          fi
+
+          ls -la temp_upstream/
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          # Compare upstream with current
+          CHANGES="false"
+
+          for file in temp_upstream/*; do
+            filename=$(basename "$file")
+            current_file="exportedNativeBridge/$filename"
+
+            if [ -f "$current_file" ]; then
+              if ! diff -q "$file" "$current_file" > /dev/null 2>&1; then
+                echo "Changed: $filename"
+                CHANGES="true"
+              fi
+            else
+              echo "New file: $filename"
+              CHANGES="true"
+            fi
+          done
+
+          echo "changes=$CHANGES" >> $GITHUB_OUTPUT
+          echo "Changes detected: $CHANGES"
+
+      - name: Update files if changed
+        if: steps.check_changes.outputs.changes == 'true' || github.event.inputs.force_release == 'true'
+        run: |
+          # Copy upstream files to our repo
+          cp -r temp_upstream/* exportedNativeBridge/
+
+          # Show what changed
+          git diff --stat
+
+      - name: Calculate next version
+        if: steps.check_changes.outputs.changes == 'true' || github.event.inputs.force_release == 'true'
+        id: next_version
+        run: |
+          CURRENT="${{ steps.current_version.outputs.tag }}"
+          # Remove 'v' prefix
+          VERSION="${CURRENT#v}"
+
+          # Split version
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # Increment patch version
+          PATCH=$((PATCH + 1))
+
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Next version: $NEW_VERSION"
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changes == 'true' || github.event.inputs.force_release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git commit -m "chore: Sync with upstream supabase-kt-plugins
+
+          Synced exportedNativeBridge from:
+          https://github.com/supabase-community/supabase-kt-plugins/tree/main/ComposeAuth/exportedNativeBridge
+
+          Version: ${{ steps.next_version.outputs.version }}"
+
+          git push
+
+      - name: Create tag and release
+        if: steps.check_changes.outputs.changes == 'true' || github.event.inputs.force_release == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.next_version.outputs.version }}"
+
+          # Create tag
+          git tag -a "$VERSION" -m "Release $VERSION - Synced with upstream"
+          git push origin "$VERSION"
+
+          # Create GitHub release
+          gh release create "$VERSION" \
+            --title "$VERSION - Upstream Sync" \
+            --notes "## Changes
+
+          Synced with upstream [supabase-kt-plugins](https://github.com/supabase-community/supabase-kt-plugins/tree/main/ComposeAuth/exportedNativeBridge).
+
+          ## Installation
+
+          Add via Swift Package Manager:
+          \`\`\`
+          https://github.com/mobilebytesensei/supabase-compose-auth-ios-bridge
+          \`\`\`
+
+          ## What's New
+
+          - Updated GoogleSignInController from upstream
+          - Compatible with latest supabase-compose-auth"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf temp_upstream
+
+      - name: Summary
+        run: |
+          echo "## Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_changes.outputs.changes }}" == "true" ]; then
+            echo "✅ Changes detected and synced" >> $GITHUB_STEP_SUMMARY
+            echo "📦 New version: ${{ steps.next_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes detected in upstream" >> $GITHUB_STEP_SUMMARY
+          fi
