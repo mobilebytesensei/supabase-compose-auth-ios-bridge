@@ -116,23 +116,31 @@ jobs:
           echo "Next version: $NEW_VERSION"
 
       - name: Commit and push changes
+        id: commit
         if: steps.check_changes.outputs.changes == 'true' || github.event.inputs.force_release == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add -A
-          git commit -m "chore: Sync with upstream supabase-kt-plugins
+
+          # Check if there are actually any changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "chore: Sync with upstream supabase-kt-plugins
 
           Synced exportedNativeBridge from:
           https://github.com/supabase-community/supabase-kt-plugins/tree/main/ComposeAuth/exportedNativeBridge
 
           Version: ${{ steps.next_version.outputs.version }}"
-
-          git push
+            git push
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create tag and release
-        if: steps.check_changes.outputs.changes == 'true' || github.event.inputs.force_release == 'true'
+        if: steps.commit.outputs.has_changes == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -169,9 +177,11 @@ jobs:
         run: |
           echo "## Sync Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.check_changes.outputs.changes }}" == "true" ]; then
-            echo "✅ Changes detected and synced" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.commit.outputs.has_changes }}" == "true" ]; then
+            echo "✅ Changes synced and released" >> $GITHUB_STEP_SUMMARY
             echo "📦 New version: ${{ steps.next_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.check_changes.outputs.changes }}" == "true" ]; then
+            echo "ℹ️ Changes detected but already up to date" >> $GITHUB_STEP_SUMMARY
           else
             echo "ℹ️ No changes detected in upstream" >> $GITHUB_STEP_SUMMARY
           fi
