@@ -89,6 +89,11 @@ jobs:
           # Copy upstream files to our repo
           cp -r temp_upstream/* exportedNativeBridge/
 
+          # CRITICAL: Remove Package.swift if it exists in exportedNativeBridge
+          # This file causes build errors when present in the target folder
+          rm -f exportedNativeBridge/Package.swift
+          rm -f exportedNativeBridge/DummySPMFile.swift
+
           # Show what changed
           git diff --stat
 
