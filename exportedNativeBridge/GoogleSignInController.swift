@@ -42,21 +42,22 @@ public typealias GoogleSignInCompletionHandler = (String?, String?, Bool) -> Voi
     /// Initiates the Google Sign-In flow.
     /// - Parameters:
     ///   - completion: Called with (idToken, errorMessage, wasCancelled)
-    ///   - nonce: Optional nonce for PKCE security (provided by Supabase Auth)
+    ///   - nonce: Optional nonce for security (kept for API compatibility, not used in GoogleSignIn 9.x)
     public func signIn(
         completion: @escaping GoogleSignInCompletionHandler,
         nonce: String? = nil
     ) {
-        guard let presentingViewController = UIApplication.shared.keyWindow?.rootViewController else {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let presentingViewController = scene.windows.first?.rootViewController else {
             completion(nil, "No root view controller found", false)
             return
         }
 
+        // GoogleSignIn 9.x API - nonce is handled separately if needed
         GIDSignIn.sharedInstance.signIn(
             withPresenting: presentingViewController,
             hint: nil,
-            additionalScopes: nil,
-            nonce: nonce
+            additionalScopes: nil
         ) { result, error in
             if let error = error {
                 // Error code -5 means user cancelled
