@@ -1,10 +1,6 @@
 // swift-tools-version: 5.9
 import PackageDescription
 
-// NOTE: This package requires GoogleSignIn to be provided by the consumer app.
-// Add GoogleSignIn via CocoaPods: pod 'GoogleSignIn', '~> 8.0'
-// Or via the KMP framework (supabase-compose-auth includes it)
-
 let package = Package(
     name: "SupabaseComposeAuthBridge",
     platforms: [
@@ -14,13 +10,18 @@ let package = Package(
     products: [
         .library(
             name: "SupabaseComposeAuthBridge",
-            type: .static,
             targets: ["exportedNativeBridge"]
         )
+    ],
+    dependencies: [
+        .package(url: "https://github.com/google/GoogleSignIn-iOS.git", exact: "8.0.0")
     ],
     targets: [
         .target(
             name: "exportedNativeBridge",
+            dependencies: [
+                .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS")
+            ],
             path: "exportedNativeBridge"
         )
     ]
